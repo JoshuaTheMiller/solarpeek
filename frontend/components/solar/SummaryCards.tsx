@@ -44,8 +44,19 @@ export default function SummaryCards({ readings, isLoading }: Props) {
   const wattages   = readings.map((r) => r.wattage);
   const peakW      = wattages.length ? Math.max(...wattages) : 0;
   const avgW       = wattages.length ? wattages.reduce((a, b) => a + b, 0) / wattages.length : 0;
-  // Total energy (Wh) — assumes 1-hour intervals
-  const totalWh    = wattages.reduce((a, b) => a + b, 0);
+
+  // Total energy (Wh) integrated across sample intervals using a left Riemann sum.
+  // This supports non-hourly cadence (e.g. 5/10-minute readings).
+  const totalWh = readings.slice(0, -1).reduce((acc, current, idx) => {
+    const next = readings[idx + 1];
+    const startMs = Date.parse(current.timestamp);
+    const endMs = Date.parse(next.timestamp);
+    if (Number.isNaN(startMs) || Number.isNaN(endMs) || endMs <= startMs) return acc;
+
+    const hours = (endMs - startMs) / 3_600_000;
+    return acc + current.wattage * hours;
+  }, 0);
+
   const totalKwh   = totalWh / 1000;
 
   return (
