@@ -18,7 +18,8 @@ Rails.application.routes.draw do
   namespace :api do
     namespace :v1 do
       # Current user identity & profile
-      get  'me', to: 'me#show'
+      get   'me',             to: 'me#show'
+      patch 'me/preferences', to: 'me#update_preferences'
 
       # Solar readings (all authenticated users, subject to query_limit_days)
       get 'solar/readings', to: 'solar#readings'
