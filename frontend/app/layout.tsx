@@ -6,6 +6,19 @@ import Providers from './providers';
 export const metadata: Metadata = {
   title:       'SolarPeak',
   description: 'Historical solar generation data dashboard',
+  manifest: '/manifest.webmanifest',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'SolarPeak',
+  },
+  icons: {
+    icon: [
+      { url: '/icons/icon-192.svg', type: 'image/svg+xml' },
+      { url: '/icons/icon-512.svg', type: 'image/svg+xml' },
+    ],
+    apple: [{ url: '/icons/apple-touch-icon.svg', type: 'image/svg+xml' }],
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

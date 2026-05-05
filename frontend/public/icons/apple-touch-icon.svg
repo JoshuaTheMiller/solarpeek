@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180" viewBox="0 0 180 180" role="img" aria-label="SolarPeak apple icon">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#F59E0B"/>
+      <stop offset="100%" stop-color="#D97706"/>
+    </linearGradient>
+  </defs>
+  <rect width="180" height="180" rx="36" fill="url(#bg)"/>
+  <circle cx="90" cy="70" r="28" fill="#fff3c4"/>
+  <path d="M34 126h112" stroke="#ffffff" stroke-width="11" stroke-linecap="round"/>
+  <path d="M58 110l14-22 14 16 16-24 20 30" fill="none" stroke="#ffffff" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

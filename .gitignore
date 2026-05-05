@@ -23,6 +23,8 @@ frontend/.env
 frontend/npm-debug.log*
 frontend/yarn-error.log
 frontend/.pnpm-debug.log*
+frontend/public/sw.js
+frontend/public/workbox-*.js
 
 # ── OS ────────────────────────────────────────────────────────────────────────
 .DS_Store
