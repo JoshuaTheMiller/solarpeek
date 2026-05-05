@@ -416,20 +416,21 @@ Admins and managers can adjust this per user from the Users page.
 
 ### `backend/.env`
 
-| Variable                         | Required | Description                                        |
-| -------------------------------- | -------- | -------------------------------------------------- |
-| `DATABASE_URL`                   | ✅       | PostgreSQL connection string                       |
-| `REDIS_URL`                      | ✅       | Redis connection string                            |
-| `FRONTEND_URL`                   | ✅       | CORS allowed origin (e.g. `http://localhost:3000`) |
-| `AUTH0_DOMAIN`                   | ✅\*     | Auth0 tenant domain                                |
-| `AUTH0_AUDIENCE`                 | ✅\*     | API resource server identifier                     |
-| `AUTH0_MANAGEMENT_CLIENT_ID`     | ✅\*     | M2M app client ID (for invitations)                |
-| `AUTH0_MANAGEMENT_CLIENT_SECRET` | ✅\*     | M2M app client secret                              |
-| `AUTH0_MANAGEMENT_AUDIENCE`      | ✅\*     | `https://<domain>/api/v2/`                         |
-| `ADMIN_AUTH0_SUB`                | seeding  | Auth0 `sub` of the first admin (for `db:seed`)     |
-| `ADMIN_EMAIL`                    | seeding  | Email of the first admin                           |
-| `DISABLE_AUTH`                   | bypass   | Set to `true` (must pair with `AM_I_SURE`)         |
-| `AM_I_SURE`                      | bypass   | Set to `yes` (must pair with `DISABLE_AUTH`)       |
+| Variable                         | Required | Description                                            |
+| -------------------------------- | -------- | ------------------------------------------------------ |
+| `DATABASE_URL`                   | ✅       | PostgreSQL connection string                           |
+| `REDIS_URL`                      | ✅       | Redis connection string                                |
+| `FRONTEND_URL`                   | ✅       | CORS allowed origin (e.g. `http://localhost:3000`)     |
+| `HOST`                           | ✅       | External solar API base URL used by `SolarDataService` |
+| `AUTH0_DOMAIN`                   | ✅\*     | Auth0 tenant domain                                    |
+| `AUTH0_AUDIENCE`                 | ✅\*     | API resource server identifier                         |
+| `AUTH0_MANAGEMENT_CLIENT_ID`     | ✅\*     | M2M app client ID (for invitations)                    |
+| `AUTH0_MANAGEMENT_CLIENT_SECRET` | ✅\*     | M2M app client secret                                  |
+| `AUTH0_MANAGEMENT_AUDIENCE`      | ✅\*     | `https://<domain>/api/v2/`                             |
+| `ADMIN_AUTH0_SUB`                | seeding  | Auth0 `sub` of the first admin (for `db:seed`)         |
+| `ADMIN_EMAIL`                    | seeding  | Email of the first admin                               |
+| `DISABLE_AUTH`                   | bypass   | Set to `true` (must pair with `AM_I_SURE`)             |
+| `AM_I_SURE`                      | bypass   | Set to `yes` (must pair with `DISABLE_AUTH`)           |
 
 \*Not required when bypass mode is active.
 
