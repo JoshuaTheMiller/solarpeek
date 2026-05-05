@@ -5,7 +5,9 @@ import NextLink        from 'next/link';
 import {
   Drawer, List, ListItem, ListItemButton,
   ListItemIcon, ListItemText, Toolbar,
+  useMediaQuery,
 } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import PeopleIcon   from '@mui/icons-material/People';
 import type { Role } from '@/lib/types';
@@ -37,17 +39,22 @@ const NAV_ITEMS: NavItem[] = [
 interface Props {
   open: boolean;
   role: Role;
+  onClose: () => void;
 }
 
-export default function Sidebar({ open, role }: Props) {
+export default function Sidebar({ open, role, onClose }: Props) {
   const pathname = usePathname();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   const visibleItems = NAV_ITEMS.filter((item) => item.roles.includes(role));
 
   return (
     <Drawer
-      variant="persistent"
+      variant={isMobile ? 'temporary' : 'persistent'}
       open={open}
+      onClose={onClose}
+      ModalProps={{ keepMounted: true }}
       sx={{
         width: DRAWER_WIDTH,
         flexShrink: 0,
@@ -68,6 +75,9 @@ export default function Sidebar({ open, role }: Props) {
               <ListItemButton
                 component={NextLink}
                 href={item.href}
+                onClick={() => {
+                  if (isMobile) onClose();
+                }}
                 selected={active}
                 sx={{
                   mx: 1,

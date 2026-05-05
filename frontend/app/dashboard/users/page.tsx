@@ -33,7 +33,14 @@ export default function UsersPage() {
 
   return (
     <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+      <Box
+        display="flex"
+        justifyContent="space-between"
+        alignItems={{ xs: 'stretch', sm: 'center' }}
+        flexDirection={{ xs: 'column', sm: 'row' }}
+        gap={2}
+        mb={3}
+      >
         <Typography variant="h4" fontWeight={700}>
           Users
         </Typography>
@@ -41,6 +48,7 @@ export default function UsersPage() {
           variant="contained"
           startIcon={<PersonAddIcon />}
           onClick={() => setInviteOpen(true)}
+          sx={{ alignSelf: { xs: 'flex-start', sm: 'auto' }, width: { xs: '100%', sm: 'auto' } }}
         >
           Invite User
         </Button>

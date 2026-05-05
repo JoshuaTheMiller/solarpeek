@@ -1,8 +1,9 @@
 'use client';
 
-import { useState }       from 'react';
+import { useEffect, useState } from 'react';
 import { Box, AppBar, Toolbar, Typography, IconButton,
-         Avatar, Menu, MenuItem, Tooltip, Divider, Alert } from '@mui/material';
+         Avatar, Menu, MenuItem, Tooltip, Divider, Alert, useMediaQuery } from '@mui/material';
+import { useTheme }        from '@mui/material/styles';
 import MenuIcon            from '@mui/icons-material/Menu';
 import LogoutIcon          from '@mui/icons-material/Logout';
 import WarningAmberIcon    from '@mui/icons-material/WarningAmber';
@@ -13,8 +14,15 @@ import { useMe }           from '@/lib/hooks/useMe';
 const DRAWER_WIDTH = 240;
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+
+  const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
   const [anchorEl,    setAnchorEl]    = useState<null | HTMLElement>(null);
+
+  useEffect(() => {
+    setSidebarOpen(!isMobile);
+  }, [isMobile]);
 
   const { user }    = useUser();   // null in bypass mode — Auth0 session does not exist
   const { me }      = useMe();     // always populated (proxy → Rails bypass user)
@@ -59,6 +67,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <Box
               sx={{
                 px: 1.5, py: 0.5, mr: 2,
+                display: { xs: 'none', sm: 'inline-flex' },
                 borderRadius: 99,
                 bgcolor: 'primary.main',
                 color: 'white',
@@ -116,19 +125,23 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </AppBar>
 
       {/* ── Sidebar ──────────────────────────────────────────────────── */}
-      <Sidebar open={sidebarOpen} role={me?.role ?? 'viewer'} />
+      <Sidebar
+        open={sidebarOpen}
+        role={me?.role ?? 'viewer'}
+        onClose={() => setSidebarOpen(false)}
+      />
 
       {/* ── Main content ─────────────────────────────────────────────── */}
       <Box
         component="main"
         sx={{
           flexGrow: 1,
-          p: 3,
-          mt: '64px', // AppBar height + bypass banner handled by Alert below
-          ml: sidebarOpen ? `${DRAWER_WIDTH}px` : 0,
+          p: { xs: 2, sm: 3 },
+          mt: { xs: '56px', sm: '64px' },
+          ml: !isMobile && sidebarOpen ? `${DRAWER_WIDTH}px` : 0,
           transition: 'margin 0.2s ease',
           bgcolor: 'background.default',
-          minHeight: 'calc(100vh - 64px)',
+          minHeight: { xs: 'calc(100vh - 56px)', sm: 'calc(100vh - 64px)' },
         }}
       >
         {/* ── Bypass mode banner ─────────────────────────────────────── */}
