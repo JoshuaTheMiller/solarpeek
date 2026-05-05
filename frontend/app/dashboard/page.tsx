@@ -14,7 +14,7 @@ import { useMe }        from '@/lib/hooks/useMe';
 import { useSolarData } from '@/lib/hooks/useSolarData';
 
 export default function DashboardPage() {
-  const { me, isLoading: meLoading } = useMe();
+  const { me, isLoading: meLoading, mutate } = useMe();
 
   const defaultEnd   = dayjs();
   const defaultStart = defaultEnd.subtract(6, 'day');
@@ -26,6 +26,24 @@ export default function DashboardPage() {
   const limit         = me?.query_limit_days ?? 30;
   const requestedDays = endDate.diff(startDate, 'day') + 1;
   const overLimit     = requestedDays > limit;
+
+  const bannerDismissed = me?.query_limit_banner_dismissed ?? false;
+
+  async function handleDismissBanner() {
+    // Optimistically hide the banner immediately, then persist to server.
+    await mutate(
+      async (current) => {
+        await fetch('/api/proxy/me/preferences', {
+          method:  'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ preferences: { query_limit_banner_dismissed: true } }),
+        });
+        if (!current) return current;
+        return { ...current, data: { ...current.data, query_limit_banner_dismissed: true } };
+      },
+      { revalidate: false }
+    );
+  }
 
   const { readings, isLoading: dataLoading, error } = useSolarData({
     startDate: startDate.format('YYYY-MM-DD'),
@@ -47,8 +65,10 @@ export default function DashboardPage() {
         Solar Trends
       </Typography>
 
-      {/* Query limit banner — always visible */}
-      <QueryLimitBanner queryLimitDays={limit} />
+      {/* Query limit banner — shown until dismissed */}
+      {!bannerDismissed && (
+        <QueryLimitBanner queryLimitDays={limit} onDismiss={handleDismissBanner} />
+      )}
 
       {/* Date range pickers */}
       <LocalizationProvider dateAdapter={AdapterDayjs}>

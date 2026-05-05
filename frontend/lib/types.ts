@@ -11,7 +11,8 @@ export interface User {
   invited_by_id:    number | null;
   created_at:       string;
   /** Present and true when the Rails server is running in auth bypass mode. */
-  bypass_mode?:     boolean;
+  bypass_mode?:                    boolean;
+  query_limit_banner_dismissed:    boolean;
 }
 
 export interface SolarReading {

@@ -8,7 +8,7 @@ const fetcher = (url: string) =>
   });
 
 export function useMe() {
-  const { data, error, isLoading } = useSWR<ApiResponse<User>>(
+  const { data, error, isLoading, mutate } = useSWR<ApiResponse<User>>(
     '/api/proxy/me',
     fetcher,
     { revalidateOnFocus: false }
@@ -18,5 +18,6 @@ export function useMe() {
     me:        data?.data ?? null,
     isLoading,
     error:     error?.message ?? null,
+    mutate,
   };
 }
