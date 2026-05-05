@@ -66,7 +66,7 @@ services:
     volumes:
       - ./backend:/app
       - bundle_cache:/usr/local/bundle
-    command: bundle exec rails server -b 0.0.0.0 -p 3001
+    command: bin/rails server -b 0.0.0.0 -p 3001
 
   # ── Next.js ─────────────────────────────────────────────────────────────────
   # Optional — only needed if you prefer containers over native Next.js server.

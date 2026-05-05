@@ -101,10 +101,10 @@ echo "→ Installing Ruby gems..."
 cd backend && bundle install --quiet
 
 echo "→ Creating and migrating database..."
-bundle exec rails db:create db:migrate db:seed
+bin/rails db:create db:migrate db:seed
 
 echo "→ Generating OpenAPI spec..."
-RAILS_ENV=test bundle exec rails rswag:specs:swaggerize 2>/dev/null || true
+RAILS_ENV=test bin/rails rswag:specs:swaggerize 2>/dev/null || true
 
 cd ..
 
@@ -117,7 +117,7 @@ echo "✓ Setup complete!"
 echo ""
 echo "  Open two terminal tabs and run:"
 echo ""
-echo "    Terminal 1 → cd backend  && bundle exec rails s -p 3001"
+echo "    Terminal 1 → cd backend  && bin/rails s -p 3001"
 echo "    Terminal 2 → cd frontend && npm run dev"
 echo ""
 echo "  Then visit:  http://localhost:3000"
@@ -193,7 +193,7 @@ chmod +x setup.sh && ./setup.sh
 
 ```bash
 # Terminal 1
-cd backend && bundle exec rails server -p 3001
+cd backend && bin/rails server -p 3001
 
 # Terminal 2
 cd frontend && npm run dev
@@ -213,7 +213,7 @@ the Auth0 login page.
 docker compose up -d postgres redis
 
 # Rails API (Terminal 1)
-cd backend && bundle exec rails server -p 3001
+cd backend && bin/rails server -p 3001
 
 # Next.js (Terminal 2)
 cd frontend && npm run dev
@@ -225,7 +225,7 @@ cd frontend && npm run dev
 # ── Rails ────────────────────────────────────────────────────────────────────
 
 # Open a Rails console
-cd backend && bundle exec rails console
+cd backend && bin/rails console
 
 # Run all specs
 cd backend && bundle exec rspec
@@ -234,13 +234,13 @@ cd backend && bundle exec rspec
 cd backend && bundle exec rspec spec/requests/api/v1/solar_spec.rb
 
 # Regenerate the OpenAPI spec after editing request specs
-cd backend && RAILS_ENV=test bundle exec rails rswag:specs:swaggerize
+cd backend && RAILS_ENV=test bin/rails rswag:specs:swaggerize
 
 # Reset the database
-cd backend && bundle exec rails db:drop db:create db:migrate db:seed
+cd backend && bin/rails db:drop db:create db:migrate db:seed
 
 # Check routes
-cd backend && bundle exec rails routes --expanded
+cd backend && bin/rails routes --expanded
 
 # ── Next.js ──────────────────────────────────────────────────────────────────
 
@@ -290,7 +290,7 @@ With the Rails server running:
 The OpenAPI spec is generated from the RSpec request specs using Rswag:
 
 ```bash
-cd backend && RAILS_ENV=test bundle exec rails rswag:specs:swaggerize
+cd backend && RAILS_ENV=test bin/rails rswag:specs:swaggerize
 ```
 
 Re-run this whenever you add or modify a request spec.

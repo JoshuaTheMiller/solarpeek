@@ -69,16 +69,16 @@ bundle install
 ok "Gems installed"
 
 step "Creating and migrating database"
-bundle exec rails db:create db:migrate
+bin/rails db:create db:migrate
 ok "Database ready"
 
 step "Seeding initial admin (if ADMIN_AUTH0_SUB + ADMIN_EMAIL are set)"
-bundle exec rails db:seed
+bin/rails db:seed
 ok "Seed complete"
 
 step "Generating OpenAPI spec (Rswag → public/openapi/v1/swagger.json)"
-RAILS_ENV=test bundle exec rails rswag:specs:swaggerize 2>/dev/null || \
-  warn "Spec generation failed — run manually once specs pass: bundle exec rails rswag:specs:swaggerize"
+RAILS_ENV=test bin/rails rswag:specs:swaggerize 2>/dev/null || \
+  warn "Spec generation failed — run manually once specs pass: bin/rails rswag:specs:swaggerize"
 ok "OpenAPI spec generated → public/openapi/v1/swagger.json"
 
 cd ..
@@ -96,7 +96,7 @@ echo -e "${GREEN}${BOLD}  ✓ Setup complete!${NC}"
 echo -e "${BOLD}════════════════════════════════════════════${NC}"
 echo
 echo -e "  Start infrastructure:    ${BOLD}docker-compose up postgres redis${NC}"
-echo -e "  Start Rails API:         ${BOLD}cd backend && bundle exec rails s -p 3001${NC}"
+echo -e "  Start Rails API:         ${BOLD}cd backend && bin/rails s -p 3001${NC}"
 echo -e "  Start Next.js:           ${BOLD}cd frontend && npm run dev${NC}"
 echo -e "  View API docs (Redocly): ${BOLD}http://localhost:3001/api-docs${NC}"
 echo -e "  Raw OpenAPI spec:        ${BOLD}http://localhost:3001/openapi/v1/swagger.json${NC}"
