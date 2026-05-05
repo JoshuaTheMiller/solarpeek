@@ -1,14 +1,14 @@
-version: '3.9'
-
 # ─────────────────────────────────────────────────────────────────────────────
 # SolarPeak — Local Development Services
 #
 # Usage:
-#   docker-compose up postgres redis        # infrastructure only (recommended)
-#   docker-compose up                        # everything including app containers
+#   docker compose up postgres redis        # infrastructure only (recommended)
+#   docker compose up --build               # everything including app containers
+#   docker compose -f docker-compose.yml -f docker-compose.hotreload.yml up --build
+#                                        # optional hot-reload mode with bind mounts
 #
-# For active development, run postgres + redis via Docker and the Rails/Next.js
-# servers natively (faster reloads, easier debugging).
+# This config is container-safe for remote/devcontainer environments.
+# Backend/frontend run from image contents (no bind mounts).
 # ─────────────────────────────────────────────────────────────────────────────
 
 services:
@@ -63,10 +63,7 @@ services:
       REDIS_URL:    redis://redis:6379/0
       FRONTEND_URL: http://localhost:3000
       RAILS_ENV:    development
-    volumes:
-      - ./backend:/app
-      - bundle_cache:/usr/local/bundle
-    command: bin/rails server -b 0.0.0.0 -p 3001
+    command: bundle exec rails server -b 0.0.0.0 -p 3001
 
   # ── Next.js ─────────────────────────────────────────────────────────────────
   # Optional — only needed if you prefer containers over native Next.js server.
@@ -81,14 +78,9 @@ services:
     env_file:
       - ./frontend/.env.local
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:3001
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-      - /app/.next
+      NEXT_PUBLIC_API_URL: http://backend:3001
     command: npm run dev
 
 volumes:
   postgres_data:
   redis_data:
-  bundle_cache:
