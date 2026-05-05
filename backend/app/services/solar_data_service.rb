@@ -20,7 +20,11 @@
 #   Cache is bypassed when Redis is unavailable (graceful degradation).
 #
 class SolarDataService
-  CACHE_TTL = 600 # 10 minutes
+  API_PATH = '/index.php/realtimedata/old_power_graph'
+  CACHE_VERSION = 'v2'.freeze
+  DATE_INDEX_PREFIX = "solar:#{CACHE_VERSION}:date".freeze
+  DATE_FETCHED_PREFIX = "solar:#{CACHE_VERSION}:date-fetched".freeze
+  POINT_PREFIX = "solar:#{CACHE_VERSION}:point".freeze
 
   # @param start_date [Date, String]
   # @param end_date   [Date, String]
@@ -29,61 +33,138 @@ class SolarDataService
     start_d = start_date.to_date
     end_d   = end_date.to_date
 
-    cache_key = "solar:readings:#{start_d}:#{end_d}"
+    points = []
 
-    if (raw = $redis&.get(cache_key))
-      return JSON.parse(raw, symbolize_names: true)
+    (start_d..end_d).each do |date|
+      day_points = cached_points_for_date(date)
+
+      if day_points.nil?
+        fetched = fetch_from_api(date: date)
+        cache_points_for_date(date, fetched)
+        day_points = fetched.map { |p| p.slice(:timestamp, :wattage) }
+      end
+
+      points.concat(day_points)
     end
 
-    # ── TODO: Replace with real API call ─────────────────────────────────────
-    # data = fetch_from_api(start_date: start_d, end_date: end_d)
-    data = generate_stub_data(start_d, end_d)
-
-    $redis&.setex(cache_key, CACHE_TTL, data.to_json)
-    data
+    points.sort_by { |p| p[:timestamp] }
   end
 
   # ── Private ────────────────────────────────────────────────────────────────
-  private_class_method def self.generate_stub_data(start_date, end_date)
-    data    = []
-    current = start_date
-
-    while current <= end_date
-      # Hourly readings covering daylight hours (06:00–20:00 UTC)
-      (6..20).each do |hour|
-        # Approximate a bell-curve centred on solar noon (13:00)
-        peak_hour = 13.0
-        sigma     = 3.5
-        gaussian  = Math.exp(-((hour - peak_hour)**2) / (2 * sigma**2))
-
-        base    = 6_000 * gaussian   # ~6 kW peak system
-        jitter  = rand(-300.0..300.0)
-        wattage = [base + jitter, 0.0].max.round(2)
-
-        data << {
-          timestamp: Time.utc(current.year, current.month, current.day, hour).iso8601,
-          wattage:   wattage
-        }
-      end
-
-      current += 1
-    end
-
-    data
+  private_class_method def self.date_index_key(date)
+    "#{DATE_INDEX_PREFIX}:#{date}:points"
   end
 
-  # Placeholder for the real upstream API call.
-  # @param start_date [Date]
-  # @param end_date   [Date]
+  private_class_method def self.date_fetched_key(date)
+    "#{DATE_FETCHED_PREFIX}:#{date}"
+  end
+
+  private_class_method def self.point_key(time_ms)
+    "#{POINT_PREFIX}:#{time_ms}"
+  end
+
+  private_class_method def self.cached_points_for_date(date)
+    return nil unless $redis
+
+    if $redis.get(date_fetched_key(date))
+      time_ms_list = $redis.zrange(date_index_key(date), 0, -1)
+      return [] if time_ms_list.empty?
+    end
+
+    time_ms_list = $redis.zrange(date_index_key(date), 0, -1)
+    return nil if time_ms_list.empty?
+
+    payloads = $redis.mget(*time_ms_list.map { |time_ms| point_key(time_ms) })
+    return nil if payloads.any?(&:nil?)
+
+    payloads
+      .map { |payload| JSON.parse(payload, symbolize_names: true).slice(:timestamp, :wattage) }
+      .sort_by { |point| point[:timestamp] }
+  rescue Redis::BaseError => e
+    Rails.logger.warn("Redis read failed for solar cache: #{e.message}")
+    nil
+  end
+
+  private_class_method def self.cache_points_for_date(date, points)
+    return unless $redis
+
+    index_key = date_index_key(date)
+
+    $redis.pipelined do |pipe|
+      pipe.set(date_fetched_key(date), '1')
+      points.each do |point|
+        time_ms = point.fetch(:time_ms)
+        pipe.set(
+          point_key(time_ms),
+          {
+            timestamp: point.fetch(:timestamp),
+            wattage: point.fetch(:wattage)
+          }.to_json
+        )
+        pipe.zadd(index_key, time_ms, time_ms)
+      end
+    end
+  rescue Redis::BaseError => e
+    Rails.logger.warn("Redis write failed for solar cache: #{e.message}")
+  end
+
+  # Fetches one day of solar readings from the upstream API.
+  # @param date [Date]
   # @return [Array<Hash>]
-  private_class_method def self.fetch_from_api(start_date:, end_date:)
-    # response = HTTParty.get(
-    #   ENV.fetch('SOLAR_API_URL'),
-    #   query: { start: start_date.iso8601, end: end_date.iso8601 },
-    #   headers: { 'Authorization' => "Bearer #{ENV.fetch('SOLAR_API_KEY')}" }
-    # )
-    # raise "Solar API error: #{response.code}" unless response.success?
-    # response.parsed_response['data'].map { |d| d.slice('timestamp', 'wattage').symbolize_keys }
-    raise NotImplementedError, 'Real solar API not yet configured'
+  private_class_method def self.fetch_from_api(date:)
+    base_url = ENV.fetch('HOST')
+    url = build_api_url(base_url)
+
+    headers = {
+      'Host' => 'SolarInspector',
+      'Content-Type' => 'application/x-www-form-urlencoded',
+      'x-requested-with' => 'XMLHttpRequest'
+    }
+
+    body = URI.encode_www_form(date: date.iso8601)
+
+    response = HTTParty.post(url, body:, headers:)
+    raise "Solar API error: #{response.code}" unless response.success?
+
+    payload = response.parsed_response
+    payload = JSON.parse(payload) if payload.is_a?(String)
+    power_rows = payload.fetch('power')
+
+    power_rows.map do |row|
+      time_ms = Integer(row.fetch('time'))
+
+      {
+        time_ms:,
+        timestamp: Time.at(time_ms / 1000.0).utc.iso8601,
+        # Upstream each_system_power is already in watts.
+        wattage: row.fetch('each_system_power').to_f.round(2)
+      }
+    end
+  rescue KeyError, TypeError, ArgumentError => e
+    raise "Solar API response format error: #{e.message}"
+  end
+
+  private_class_method def self.build_api_url(base_url)
+    normalized = base_url.to_s.strip
+    raise ArgumentError, 'HOST cannot be blank' if normalized.empty?
+
+    normalized = "http://#{normalized}" unless normalized.match?(%r{\Ahttps?://}i)
+
+    uri = URI.parse(normalized)
+    host_and_port = uri.host
+    host_and_port = "#{host_and_port}:#{uri.port}" if uri.port && ![80, 443].include?(uri.port)
+
+    # If HOST already contains API_PATH, reuse it as-is.
+    path = uri.path.to_s
+    if path.end_with?(API_PATH)
+      final_path = path
+    else
+      # Strip any trailing slash and append the required API path exactly once.
+      final_path = "#{path.sub(%r{/+\z}, '')}#{API_PATH}"
+    end
+
+    "#{uri.scheme}://#{host_and_port}#{final_path}"
+  rescue URI::InvalidURIError => e
+    raise ArgumentError, "Invalid HOST value: #{e.message}"
   end
 end
