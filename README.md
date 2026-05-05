@@ -4,13 +4,13 @@ A full-stack web application for viewing historical solar generation trends.
 Users sign in (via Auth0) and query wattage data over time, subject to per-user
 date-range limits managed by admins and managers.
 
-| Layer | Technology |
-|---|---|
+| Layer    | Technology                                                          |
+| -------- | ------------------------------------------------------------------- |
 | Frontend | Next.js 14 (App Router) · MUI v5 · Recharts · `@auth0/nextjs-auth0` |
-| Backend | Ruby on Rails 7.1 (API-only) · Pundit · Rswag → Redocly |
-| Database | PostgreSQL 16 |
-| Cache | Redis 7 |
-| Auth | Auth0 (Regular Web App + M2M) |
+| Backend  | Ruby on Rails 7.1 (API-only) · Pundit · Rswag → Redocly             |
+| Database | PostgreSQL 16                                                       |
+| Cache    | Redis 7                                                             |
+| Auth     | Auth0 (Regular Web App + M2M)                                       |
 
 ---
 
@@ -30,12 +30,12 @@ date-range limits managed by admins and managers.
 
 Install these before anything else.
 
-| Tool | Version | Install |
-|---|---|---|
-| Ruby | 3.2+ | [rbenv](https://github.com/rbenv/rbenv) recommended |
-| Node.js | 20+ | [nvm](https://github.com/nvm-sh/nvm) recommended |
-| Docker Desktop | latest | [docker.com](https://www.docker.com/products/docker-desktop/) |
-| Git | any | — |
+| Tool           | Version | Install                                                       |
+| -------------- | ------- | ------------------------------------------------------------- |
+| Ruby           | 3.2+    | [rbenv](https://github.com/rbenv/rbenv) recommended           |
+| Node.js        | 20+     | [nvm](https://github.com/nvm-sh/nvm) recommended              |
+| Docker Desktop | latest  | [docker.com](https://www.docker.com/products/docker-desktop/) |
+| Git            | any     | —                                                             |
 
 Verify:
 
@@ -206,16 +206,48 @@ the Auth0 login page.
 
 ## Daily Development
 
+### Runtime Modes
+
+SolarPeak supports two Docker Compose workflows:
+
+1. **Stable mode (default, recommended)**
+   - Best for remote/devcontainer environments.
+   - Runs app services from image contents (no bind mounts).
+
+```bash
+docker compose up --build -d
+docker compose ps
+```
+
+2. **Hot-reload mode (optional)**
+   - Best when bind mounts are known to work in your local Docker setup.
+   - Uses mounted source code for faster edit-refresh loops.
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.hotreload.yml up --build -d
+docker compose -f docker-compose.yml -f docker-compose.hotreload.yml ps
+```
+
+Stop commands:
+
+```bash
+# Stable mode
+docker compose down
+
+# Hot-reload mode
+docker compose -f docker-compose.yml -f docker-compose.hotreload.yml down
+```
+
 ### Start everything
 
 ```bash
-# Infrastructure (run once, stays up)
+# Infrastructure only (if running app locally outside compose)
 docker compose up -d postgres redis
 
-# Rails API (Terminal 1)
+# Rails API (Terminal 1, local runtime mode)
 cd backend && bin/rails server -p 3001
 
-# Next.js (Terminal 2)
+# Next.js (Terminal 2, local runtime mode)
 cd frontend && npm run dev
 ```
 
@@ -281,11 +313,11 @@ blocked entirely when `RAILS_ENV=production`.
 
 With the Rails server running:
 
-| URL | Description |
-|---|---|
-| `http://localhost:3001/api-docs` | Redocly interactive docs |
-| `http://localhost:3001/openapi/v1/swagger.json` | Raw OpenAPI 3.0 JSON |
-| `http://localhost:3001/health` | Health check (`{"status":"ok"}`) |
+| URL                                             | Description                      |
+| ----------------------------------------------- | -------------------------------- |
+| `http://localhost:3001/api-docs`                | Redocly interactive docs         |
+| `http://localhost:3001/openapi/v1/swagger.json` | Raw OpenAPI 3.0 JSON             |
+| `http://localhost:3001/health`                  | Health check (`{"status":"ok"}`) |
 
 The OpenAPI spec is generated from the RSpec request specs using Rswag:
 
@@ -365,15 +397,15 @@ SolarPeak/
 
 ## Role & Permission Reference
 
-| Action | Admin | Manager | Viewer |
-|---|:---:|:---:|:---:|
-| Query solar data (within own limit) | ✅ | ✅ | ✅ |
-| Invite managers | ✅ | ✅ | ❌ |
-| Invite viewers | ✅ | ✅ | ❌ |
-| Invite admins | ✅ | ❌ | ❌ |
-| Set any user's query limit | ✅ | ✅ | ❌ |
-| View all users | ✅ | ✅ | ❌ |
-| Deactivate / reactivate users | ✅ | ✅ | ❌ |
+| Action                              | Admin | Manager | Viewer |
+| ----------------------------------- | :---: | :-----: | :----: |
+| Query solar data (within own limit) |  ✅   |   ✅    |   ✅   |
+| Invite managers                     |  ✅   |   ✅    |   ❌   |
+| Invite viewers                      |  ✅   |   ✅    |   ❌   |
+| Invite admins                       |  ✅   |   ❌    |   ❌   |
+| Set any user's query limit          |  ✅   |   ✅    |   ❌   |
+| View all users                      |  ✅   |   ✅    |   ❌   |
+| Deactivate / reactivate users       |  ✅   |   ✅    |   ❌   |
 
 **Default query limit:** 30 days for all newly invited users.  
 Admins and managers can adjust this per user from the Users page.
@@ -384,35 +416,35 @@ Admins and managers can adjust this per user from the Users page.
 
 ### `backend/.env`
 
-| Variable | Required | Description |
-|---|---|---|
-| `DATABASE_URL` | ✅ | PostgreSQL connection string |
-| `REDIS_URL` | ✅ | Redis connection string |
-| `FRONTEND_URL` | ✅ | CORS allowed origin (e.g. `http://localhost:3000`) |
-| `AUTH0_DOMAIN` | ✅* | Auth0 tenant domain |
-| `AUTH0_AUDIENCE` | ✅* | API resource server identifier |
-| `AUTH0_MANAGEMENT_CLIENT_ID` | ✅* | M2M app client ID (for invitations) |
-| `AUTH0_MANAGEMENT_CLIENT_SECRET` | ✅* | M2M app client secret |
-| `AUTH0_MANAGEMENT_AUDIENCE` | ✅* | `https://<domain>/api/v2/` |
-| `ADMIN_AUTH0_SUB` | seeding | Auth0 `sub` of the first admin (for `db:seed`) |
-| `ADMIN_EMAIL` | seeding | Email of the first admin |
-| `DISABLE_AUTH` | bypass | Set to `true` (must pair with `AM_I_SURE`) |
-| `AM_I_SURE` | bypass | Set to `yes` (must pair with `DISABLE_AUTH`) |
+| Variable                         | Required | Description                                        |
+| -------------------------------- | -------- | -------------------------------------------------- |
+| `DATABASE_URL`                   | ✅       | PostgreSQL connection string                       |
+| `REDIS_URL`                      | ✅       | Redis connection string                            |
+| `FRONTEND_URL`                   | ✅       | CORS allowed origin (e.g. `http://localhost:3000`) |
+| `AUTH0_DOMAIN`                   | ✅\*     | Auth0 tenant domain                                |
+| `AUTH0_AUDIENCE`                 | ✅\*     | API resource server identifier                     |
+| `AUTH0_MANAGEMENT_CLIENT_ID`     | ✅\*     | M2M app client ID (for invitations)                |
+| `AUTH0_MANAGEMENT_CLIENT_SECRET` | ✅\*     | M2M app client secret                              |
+| `AUTH0_MANAGEMENT_AUDIENCE`      | ✅\*     | `https://<domain>/api/v2/`                         |
+| `ADMIN_AUTH0_SUB`                | seeding  | Auth0 `sub` of the first admin (for `db:seed`)     |
+| `ADMIN_EMAIL`                    | seeding  | Email of the first admin                           |
+| `DISABLE_AUTH`                   | bypass   | Set to `true` (must pair with `AM_I_SURE`)         |
+| `AM_I_SURE`                      | bypass   | Set to `yes` (must pair with `DISABLE_AUTH`)       |
 
-*Not required when bypass mode is active.
+\*Not required when bypass mode is active.
 
 ### `frontend/.env.local`
 
-| Variable | Required | Description |
-|---|---|---|
-| `AUTH0_SECRET` | ✅* | 32-byte hex string; encrypts the session cookie |
-| `AUTH0_BASE_URL` | ✅* | Canonical URL of the Next.js app |
-| `AUTH0_ISSUER_BASE_URL` | ✅* | `https://<auth0-domain>` |
-| `AUTH0_CLIENT_ID` | ✅* | Regular Web App client ID |
-| `AUTH0_CLIENT_SECRET` | ✅* | Regular Web App client secret |
-| `AUTH0_AUDIENCE` | ✅* | Must match Rails `AUTH0_AUDIENCE` |
-| `NEXT_PUBLIC_API_URL` | ✅ | Rails API base URL (e.g. `http://localhost:3001`) |
-| `DISABLE_AUTH` | bypass | Set to `true` (must pair with `AM_I_SURE`) |
-| `AM_I_SURE` | bypass | Set to `yes` (must pair with `DISABLE_AUTH`) |
+| Variable                | Required | Description                                       |
+| ----------------------- | -------- | ------------------------------------------------- |
+| `AUTH0_SECRET`          | ✅\*     | 32-byte hex string; encrypts the session cookie   |
+| `AUTH0_BASE_URL`        | ✅\*     | Canonical URL of the Next.js app                  |
+| `AUTH0_ISSUER_BASE_URL` | ✅\*     | `https://<auth0-domain>`                          |
+| `AUTH0_CLIENT_ID`       | ✅\*     | Regular Web App client ID                         |
+| `AUTH0_CLIENT_SECRET`   | ✅\*     | Regular Web App client secret                     |
+| `AUTH0_AUDIENCE`        | ✅\*     | Must match Rails `AUTH0_AUDIENCE`                 |
+| `NEXT_PUBLIC_API_URL`   | ✅       | Rails API base URL (e.g. `http://localhost:3001`) |
+| `DISABLE_AUTH`          | bypass   | Set to `true` (must pair with `AM_I_SURE`)        |
+| `AM_I_SURE`             | bypass   | Set to `yes` (must pair with `DISABLE_AUTH`)      |
 
-*Not required when bypass mode is active. Can be set to placeholder values.
+\*Not required when bypass mode is active. Can be set to placeholder values.
