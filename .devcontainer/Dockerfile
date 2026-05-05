@@ -1,49 +1,47 @@
-# ─────────────────────────────────────────────────────────────────────────────
-# SolarPeak — Dev Container Image
-#
-# Ruby 3.2 (official image, Debian Bookworm) + Node 20 via NodeSource.
-# Matches the runtime versions used in backend/Dockerfile.dev and
-# frontend/Dockerfile.dev, but in a single image suited for VS Code /
-# JetBrains devcontainer usage.
-# ─────────────────────────────────────────────────────────────────────────────
+FROM mcr.microsoft.com/devcontainers/base:ubuntu-24.04
 
-FROM ruby:3.2-bookworm
-
-# ── System packages ───────────────────────────────────────────────────────────
-RUN apt-get update && apt-get install -y --no-install-recommends \
-      curl \
-      git \
-      sudo \
-      gnupg \
-      lsb-release \
-      postgresql-client \
-      redis-tools \
-      build-essential \
-      libpq-dev \
-      tzdata \
-    && rm -rf /var/lib/apt/lists/*
-
-# ── Node 20 via NodeSource ────────────────────────────────────────────────────
-RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
-    && apt-get install -y --no-install-recommends nodejs \
-    && npm install -g npm@latest \
-    && rm -rf /var/lib/apt/lists/*
-
-# ── Non-root user (matches VS Code devcontainer convention) ───────────────────
+ARG RUBY_VERSION=3.2.0
+ARG NODE_MAJOR=20
 ARG USERNAME=vscode
-ARG USER_UID=1000
-ARG USER_GID=${USER_UID}
 
-RUN groupadd --gid ${USER_GID} ${USERNAME} \
-    && useradd  --uid ${USER_UID} --gid ${USER_GID} -m -s /bin/bash ${USERNAME} \
-    && echo "${USERNAME} ALL=(root) NOPASSWD:ALL" > /etc/sudoers.d/${USERNAME} \
-    && chmod 0440 /etc/sudoers.d/${USERNAME}
+ENV DEBIAN_FRONTEND=noninteractive
+ENV RBENV_ROOT=/usr/local/rbenv
+ENV PATH=/usr/local/rbenv/shims:/usr/local/rbenv/bin:${PATH}
 
-# ── Global bundler config: write gems to the shared bundle_cache volume ───────
-# (kept outside the workspace mount so gems survive container rebuilds)
-ENV BUNDLE_PATH=/usr/local/bundle \
-    BUNDLE_BIN=/usr/local/bundle/bin \
-    GEM_HOME=/usr/local/bundle
-ENV PATH="${BUNDLE_BIN}:${PATH}"
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    autoconf \
+    bison \
+    build-essential \
+    ca-certificates \
+    curl \
+    git \
+    libdb-dev \
+    libffi-dev \
+    libgdbm-dev \
+    libgmp-dev \
+    libncurses5-dev \
+    libreadline-dev \
+    libssl-dev \
+    libyaml-dev \
+    patch \
+    rustc \
+    uuid-dev \
+    xz-utils \
+    zlib1g-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN curl -fsSL https://deb.nodesource.com/setup_${NODE_MAJOR}.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN git clone https://github.com/rbenv/rbenv.git ${RBENV_ROOT} \
+    && mkdir -p ${RBENV_ROOT}/plugins \
+    && git clone https://github.com/rbenv/ruby-build.git ${RBENV_ROOT}/plugins/ruby-build \
+    && ${RBENV_ROOT}/bin/rbenv install -s ${RUBY_VERSION} \
+    && ${RBENV_ROOT}/bin/rbenv global ${RUBY_VERSION} \
+    && gem install bundler \
+    && rbenv rehash
+
+RUN chown -R ${USERNAME}:${USERNAME} ${RBENV_ROOT}
 
 USER ${USERNAME}
