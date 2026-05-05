@@ -21,9 +21,7 @@ Rails.application.routes.draw do
       get  'me', to: 'me#show'
 
       # Solar readings (all authenticated users, subject to query_limit_days)
-      namespace :solar do
-        get 'readings', to: 'solar#readings'
-      end
+      get 'solar/readings', to: 'solar#readings'
 
       # User management (admin + manager)
       resources :users, only: %i[index show destroy] do
