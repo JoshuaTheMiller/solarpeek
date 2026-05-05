@@ -5,8 +5,8 @@
 #
 # Usage in controller:
 #   authorize SolarQuery.new(start_date: ..., end_date: ...), policy_class: SolarPolicy
-
-SolarQuery = Struct.new(:start_date, :end_date, keyword_init: true)
+#
+# SolarQuery is defined in app/models/solar_query.rb for Zeitwerk autoloading.
 
 class SolarPolicy < ApplicationPolicy
   # All authenticated, active users may query solar data,
