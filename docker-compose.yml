@@ -1,0 +1,94 @@
+version: '3.9'
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SolarPeak — Local Development Services
+#
+# Usage:
+#   docker-compose up postgres redis        # infrastructure only (recommended)
+#   docker-compose up                        # everything including app containers
+#
+# For active development, run postgres + redis via Docker and the Rails/Next.js
+# servers natively (faster reloads, easier debugging).
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  # ── PostgreSQL ──────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER:     solarpeak
+      POSTGRES_PASSWORD: solarpeak
+      POSTGRES_DB:       solarpeak_development
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:     ["CMD-SHELL", "pg_isready -U solarpeak"]
+      interval: 5s
+      timeout:  5s
+      retries:  5
+
+  # ── Redis ───────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test:     ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout:  5s
+      retries:  5
+
+  # ── Rails API ───────────────────────────────────────────────────────────────
+  # Optional — only needed if you prefer containers over native Rails server.
+  backend:
+    build:
+      context:    ./backend
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - ./backend/.env
+    environment:
+      DATABASE_URL: postgresql://solarpeak:solarpeak@postgres/solarpeak_development
+      REDIS_URL:    redis://redis:6379/0
+      FRONTEND_URL: http://localhost:3000
+      RAILS_ENV:    development
+    volumes:
+      - ./backend:/app
+      - bundle_cache:/usr/local/bundle
+    command: bundle exec rails server -b 0.0.0.0 -p 3001
+
+  # ── Next.js ─────────────────────────────────────────────────────────────────
+  # Optional — only needed if you prefer containers over native Next.js server.
+  frontend:
+    build:
+      context:    ./frontend
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    env_file:
+      - ./frontend/.env.local
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:3001
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    command: npm run dev
+
+volumes:
+  postgres_data:
+  redis_data:
+  bundle_cache:

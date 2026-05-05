@@ -1,0 +1,98 @@
+{
+  // ── SolarPeak Dev Container ──────────────────────────────────────────────
+  // Opens a single workspace container that has Ruby 3.2 + Node 20.
+  // PostgreSQL 16 and Redis 7 are started automatically from docker-compose.yml.
+  // Auth bypass is always active inside this container — no Auth0 account needed.
+  //
+  // Requirements (host machine only):
+  //   • Docker Desktop (or Docker Engine + Compose v2)
+  //   • VS Code with the "Dev Containers" extension  OR  JetBrains Gateway
+  //
+  // First open:  VS Code will rebuild the image, start all services, and run
+  //              post-create.sh (installs gems + npm, migrates DB).  ~3-5 min.
+  // Subsequent opens:  attaches in seconds (image is cached).
+  // ─────────────────────────────────────────────────────────────────────────
+
+  "name": "SolarPeak",
+
+  // Merge the base compose file (postgres + redis) with the devcontainer
+  // override (adds the workspace service).
+  "dockerComposeFile": [
+    "../docker-compose.yml",
+    "docker-compose.devcontainer.yml"
+  ],
+
+  // The service VS Code / JetBrains attaches to.
+  "service": "devcontainer",
+
+  // Where the repo is mounted inside the container.
+  "workspaceFolder": "/workspaces/SolarPeak",
+
+  // Run once after the container is first created.
+  "postCreateCommand": "bash /workspaces/SolarPeak/.devcontainer/post-create.sh",
+
+  // ── Port forwarding ───────────────────────────────────────────────────────
+  "forwardPorts": [3000, 3001, 5432, 6379],
+  "portsAttributes": {
+    "3000": { "label": "Next.js Frontend",  "onAutoForward": "notify" },
+    "3001": { "label": "Rails API",         "onAutoForward": "notify" },
+    "5432": { "label": "PostgreSQL",        "onAutoForward": "silent" },
+    "6379": { "label": "Redis",             "onAutoForward": "silent" }
+  },
+
+  // ── VS Code customisations ────────────────────────────────────────────────
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        // Ruby
+        "Shopify.ruby-lsp",
+        "KoichiSasada.vscode-rdbg",
+
+        // TypeScript / Next.js
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "ms-vscode.vscode-typescript-next",
+
+        // Database
+        "mtxr.sqltools",
+        "mtxr.sqltools-driver-pg",
+
+        // Docker / devcontainers
+        "ms-azuretools.vscode-docker",
+
+        // General DX
+        "EditorConfig.EditorConfig",
+        "streetsidesoftware.code-spell-checker",
+        "eamodio.gitlens"
+      ],
+      "settings": {
+        // Ruby LSP
+        "rubyLsp.bundleGemfile": "${workspaceFolder}/backend/Gemfile",
+        "rubyLsp.formatter": "rubocop",
+
+        // Editor defaults
+        "editor.formatOnSave": true,
+        "editor.tabSize": 2,
+
+        // Per-language formatters
+        "[ruby]":           { "editor.defaultFormatter": "Shopify.ruby-lsp" },
+        "[typescript]":     { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+        "[typescriptreact]":{ "editor.defaultFormatter": "esbenp.prettier-vscode" },
+        "[json]":           { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+
+        // SQLTools — connect to the compose postgres service
+        "sqltools.connections": [
+          {
+            "name":     "SolarPeak (dev)",
+            "driver":   "PostgreSQL",
+            "server":   "postgres",
+            "port":     5432,
+            "database": "solarpeak_development",
+            "username": "solarpeak",
+            "password": "solarpeak"
+          }
+        ]
+      }
+    }
+  }
+}

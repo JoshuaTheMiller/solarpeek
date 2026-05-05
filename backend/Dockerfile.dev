@@ -1,0 +1,17 @@
+FROM ruby:3.2-alpine
+
+RUN apk add --no-cache \
+  build-base \
+  postgresql-dev \
+  nodejs \
+  tzdata
+
+WORKDIR /app
+
+COPY Gemfile Gemfile.lock ./
+RUN bundle install --jobs 4 --retry 3
+
+COPY . .
+
+EXPOSE 3001
+CMD ["bundle", "exec", "rails", "server", "-b", "0.0.0.0", "-p", "3001"]

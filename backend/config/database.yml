@@ -1,0 +1,19 @@
+default: &default
+  adapter: postgresql
+  encoding: unicode
+  pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
+  # DATABASE_URL takes precedence over individual settings when set.
+  # Set it in backend/.env for local dev; in CI/production use env vars directly.
+  url: <%= ENV['DATABASE_URL'] %>
+
+development:
+  <<: *default
+  database: solarpeak_development
+
+test:
+  <<: *default
+  database: solarpeak_test
+
+production:
+  <<: *default
+  database: solarpeak_production
