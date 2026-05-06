@@ -23,6 +23,13 @@ date-range limits managed by admins and managers.
 5. [API Documentation](#api-documentation)
 6. [Project Structure](#project-structure)
 7. [Role & Permission Reference](#role--permission-reference)
+8. [TODOs](#todos)
+
+---
+
+## TODOs
+
+Tracked in [todos.md](todos.md).
 
 ---
 
