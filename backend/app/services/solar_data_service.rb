@@ -39,10 +39,13 @@ class SolarDataService
   # @param return_best_day [Boolean]
   # @param return_worst_day [Boolean]
   # @param return_today [Boolean]
+  # @param today_date [Date, String]
   # @return [Hash]
-  def self.fetch(start_date:, end_date:, return_best_day: false, return_worst_day: false, return_today: false)
+  def self.fetch(start_date:, end_date:, return_best_day: false, return_worst_day: false, return_today: false,
+                 today_date: Date.current)
     start_d = start_date.to_date
     end_d   = end_date.to_date
+    today_d = today_date.to_date
 
     points = []
     points_by_requested_date = {}
@@ -75,8 +78,8 @@ class SolarDataService
       best_date: best_day ? best_day.fetch(:date).iso8601 : nil,
       worst_readings: worst_day ? worst_day.fetch(:readings) : [],
       worst_date: worst_day ? worst_day.fetch(:date).iso8601 : nil,
-      today_readings: return_today ? points_by_requested_date.fetch(Date.current, []) : [],
-      today_date: Date.current.iso8601
+      today_readings: return_today ? points_by_requested_date.fetch(today_d, []) : [],
+      today_date: today_d.iso8601
     }
   end
 

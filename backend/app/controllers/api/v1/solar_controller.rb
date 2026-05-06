@@ -8,6 +8,7 @@ module Api
       # Returns hourly wattage readings for the requested date range.
       # start_date and end_date are optional; when omitted they default to
       # (today - 364 days) and today respectively, covering a rolling year.
+      # "today" may be computed in a caller-provided IANA timezone.
       # The range is validated against the current user's query_limit_days
       # by SolarPolicy before the service is called.
       #
@@ -23,8 +24,11 @@ module Api
       #     meta: { query_limit_days: Integer, requested_days: Integer }
       #   }
       def readings
-        start_date = parse_date(:start_date, default: Date.current - 364)
-        end_date   = parse_date(:end_date,   default: Date.current)
+        timezone = parse_timezone(:timezone)
+        today_date = Time.current.in_time_zone(timezone).to_date
+
+        start_date = parse_date(:start_date, default: today_date - 364)
+        end_date   = parse_date(:end_date,   default: today_date)
         return_best_day  = parse_boolean(:return_best_day)
         return_worst_day = parse_boolean(:return_worst_day)
         return_today     = parse_boolean(:return_today)
@@ -44,7 +48,8 @@ module Api
           end_date: end_date,
           return_best_day: return_best_day,
           return_worst_day: return_worst_day,
-          return_today: return_today
+          return_today: return_today,
+          today_date: today_date
         )
 
         render_json(
@@ -92,6 +97,16 @@ module Api
         else
           raise ArgumentError, "#{param} must be a boolean value, got: #{raw.inspect}"
         end
+      end
+
+      def parse_timezone(param)
+        raw = params[param]
+        return Time.zone if raw.nil? || raw.to_s.strip.empty?
+
+        zone = ActiveSupport::TimeZone[raw.to_s]
+        raise ArgumentError, "#{param} must be a valid IANA timezone, got: #{raw.inspect}" unless zone
+
+        zone
       end
     end
   end

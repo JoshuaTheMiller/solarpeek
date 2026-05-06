@@ -52,6 +52,12 @@ RSpec.describe 'GET /api/v1/solar/readings', type: :request do
             required:    false,
             description: 'When true, include today_readings in the response (default: false)'
 
+      parameter name:        :timezone,
+            in:          :query,
+            type:        :string,
+            required:    false,
+            description: 'Optional IANA timezone (for example, America/Los_Angeles) used to compute "today" and default date range.'
+
       # ── 200 ───────────────────────────────────────────────────────────────
       response '200', 'Solar readings returned' do
         schema type: :object,
@@ -215,6 +221,86 @@ RSpec.describe 'GET /api/v1/solar/readings', type: :request do
         end
       end
 
+      response '200', 'Solar readings returned with timezone-aware today selection' do
+        schema type: :object,
+          properties: {
+            data: {
+              type:  :array,
+              items: { '$ref' => '#/components/schemas/SolarReading' }
+            },
+            best_readings: {
+              type:  :array,
+              items: { '$ref' => '#/components/schemas/SolarReading' }
+            },
+            best_date: {
+              type: :string,
+              nullable: true
+            },
+            worst_readings: {
+              type:  :array,
+              items: { '$ref' => '#/components/schemas/SolarReading' }
+            },
+            worst_date: {
+              type: :string,
+              nullable: true
+            },
+            today_readings: {
+              type:  :array,
+              items: { '$ref' => '#/components/schemas/SolarReading' }
+            },
+            today_date: {
+              type: :string
+            },
+            meta: {
+              type: :object,
+              properties: {
+                query_limit_days: { type: :integer },
+                requested_days:   { type: :integer }
+              },
+              required: %w[query_limit_days requested_days]
+            }
+          },
+          required: %w[data best_readings best_date worst_readings worst_date today_readings today_date meta]
+
+        before do
+          sign_in(viewer)
+          allow(Time).to receive(:current).and_return(Time.utc(2026, 5, 6, 12, 0, 0))
+
+          allow(SolarDataService).to receive(:fetch).and_return(
+            {
+              readings: [],
+              best_readings: [],
+              best_date: nil,
+              worst_readings: [],
+              worst_date: nil,
+              today_readings: [
+                { timestamp: '2026-05-07T01:00:00Z', wattage: 180.0 }
+              ],
+              today_date: '2026-05-07'
+            }
+          )
+        end
+
+        let(:Authorization) { 'Bearer valid_token' }
+        let(:timezone)      { 'Pacific/Kiritimati' }
+        let(:return_today)  { true }
+
+        run_test! do |response|
+          payload = JSON.parse(response.body)
+
+          expect(SolarDataService).to have_received(:fetch).with(
+            hash_including(
+              start_date: Date.new(2025, 5, 8),
+              end_date: Date.new(2026, 5, 7),
+              today_date: Date.new(2026, 5, 7),
+              return_today: true
+            )
+          )
+          expect(payload['today_date']).to eq('2026-05-07')
+          expect(payload['today_readings']).to be_an(Array)
+        end
+      end
+
       # ── 403 — range exceeds limit ─────────────────────────────────────────
       response '403', 'Date range exceeds the user query limit' do
         schema '$ref' => '#/components/schemas/Error'
@@ -235,6 +321,19 @@ RSpec.describe 'GET /api/v1/solar/readings', type: :request do
         let(:start_date)    { 'not-a-date' }
         let(:end_date)      { '2024-01-07' }
         run_test!
+      end
+
+      response '422', 'Invalid timezone' do
+        schema '$ref' => '#/components/schemas/Error'
+
+        before { sign_in(viewer) }
+        let(:Authorization) { 'Bearer valid_token' }
+        let(:timezone)      { 'Mars/Olympus_Mons' }
+
+        run_test! do |response|
+          payload = JSON.parse(response.body)
+          expect(payload.fetch('error')).to include('timezone must be a valid IANA timezone')
+        end
       end
 
       # ── 401 ───────────────────────────────────────────────────────────────
