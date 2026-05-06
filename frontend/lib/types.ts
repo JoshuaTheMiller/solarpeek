@@ -29,6 +29,12 @@ export interface ApiResponse<T> {
 
 export interface SolarResponse {
   data: SolarReading[];
+  best_readings?: SolarReading[];
+  best_date?: string | null;
+  worst_readings?: SolarReading[];
+  worst_date?: string | null;
+  today_readings?: SolarReading[];
+  today_date?: string | null;
   meta: {
     query_limit_days: number;
     requested_days:   number;
