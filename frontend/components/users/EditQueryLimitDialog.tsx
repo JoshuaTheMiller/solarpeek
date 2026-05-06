@@ -14,30 +14,37 @@ interface Props {
 }
 
 export default function EditQueryLimitDialog({ user, onClose, onSuccess }: Props) {
-  const [days,    setDays]    = useState(String(user.query_limit_days));
-  const [loading, setLoading] = useState(false);
-  const [error,   setError]   = useState<string | null>(null);
+  const [days,         setDays]         = useState(String(user.query_limit_days));
+  const [loading,      setLoading]      = useState(false);
+  const [error,        setError]        = useState<string | null>(null);
+  const [suggestedMax, setSuggestedMax] = useState<number | null>(null);
 
   const parsed = parseInt(days, 10);
   const valid  = !Number.isNaN(parsed) && parsed > 0;
 
-  async function handleSave() {
-    if (!valid) {
+  async function handleSave(overrideDays?: number) {
+    const parsedDays = overrideDays ?? parseInt(days, 10);
+    if (Number.isNaN(parsedDays) || parsedDays <= 0) {
       setError('Must be a positive number');
       return;
     }
+
     setLoading(true);
     setError(null);
+    setSuggestedMax(null);
 
     try {
       const res = await fetch(`/api/proxy/users/${user.id}/query_limit`, {
         method:  'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ query_limit_days: parsed }),
+        body:    JSON.stringify({ query_limit_days: parsedDays }),
       });
 
       const body = await res.json();
       if (!res.ok) {
+        if (body.error_code === 'query_limit_exceeds_hard_max' && typeof body.max_query_limit_days === 'number') {
+          setSuggestedMax(body.max_query_limit_days);
+        }
         setError(body.error ?? 'Update failed');
       } else {
         onSuccess();
@@ -58,6 +65,29 @@ export default function EditQueryLimitDialog({ user, onClose, onSuccess }: Props
           This controls how many days of solar data they can request at once.
         </Typography>
 
+        {suggestedMax && (
+          <Alert
+            severity="warning"
+            sx={{ mb: 2 }}
+            action={(
+              <Button
+                color="inherit"
+                size="small"
+                disabled={loading}
+                onClick={() => {
+                  setDays(String(suggestedMax));
+                  handleSave(suggestedMax);
+                }}
+              >
+                Set to {suggestedMax}
+              </Button>
+            )}
+          >
+            Requested value exceeds the system hard limit of {suggestedMax} days. Set it to {suggestedMax}
+            now, or contact the real admin for more information.
+          </Alert>
+        )}
+
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
         <TextField
@@ -65,7 +95,10 @@ export default function EditQueryLimitDialog({ user, onClose, onSuccess }: Props
           type="number"
           fullWidth
           value={days}
-          onChange={(e) => setDays(e.target.value)}
+          onChange={(e) => {
+            setDays(e.target.value);
+            setSuggestedMax(null);
+          }}
           inputProps={{ min: 1, step: 1 }}
           onKeyDown={(e) => e.key === 'Enter' && handleSave()}
           autoFocus
@@ -77,7 +110,9 @@ export default function EditQueryLimitDialog({ user, onClose, onSuccess }: Props
         <Button onClick={onClose} disabled={loading}>Cancel</Button>
         <Button
           variant="contained"
-          onClick={handleSave}
+          onClick={() => {
+            handleSave();
+          }}
           disabled={loading || !valid}
           startIcon={loading ? <CircularProgress size={16} /> : undefined}
         >

@@ -73,6 +73,20 @@ RSpec.describe 'Users API', type: :request do
         let(:body) { { query_limit_days: 60 } }
         run_test!
       end
+
+      response '422', 'Query limit exceeds system hard maximum' do
+        schema '$ref' => '#/components/schemas/Error'
+        before { sign_in(admin) }
+        let(:Authorization) { 'Bearer valid_token' }
+        let(:id)   { target.id }
+        let(:body) { { query_limit_days: 120 } }
+
+        run_test! do |response|
+          payload = JSON.parse(response.body)
+          expect(payload['error_code']).to eq('query_limit_exceeds_hard_max')
+          expect(payload['max_query_limit_days']).to eq(90)
+        end
+      end
     end
   end
 

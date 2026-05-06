@@ -72,6 +72,7 @@ AUTH0_MANAGEMENT_CLIENT_SECRET=bypass
 AUTH0_MANAGEMENT_AUDIENCE=bypass
 DISABLE_AUTH=true
 AM_I_SURE=yes
+MAX_QUERY_LIMIT_DAYS=90
 EOF
 
 # 2. Write frontend env (bypass mode, no Auth0 needed)
@@ -177,7 +178,11 @@ invitation.
 ```bash
 ADMIN_AUTH0_SUB=auth0|your-user-id-here
 ADMIN_EMAIL=you@example.com
+MAX_QUERY_LIMIT_DAYS=90
 ```
+
+`MAX_QUERY_LIMIT_DAYS` sets a system-wide hard cap for per-user
+`query_limit_days` updates. If unset, SolarPeak defaults to `90`.
 
 ### 4 — Install dependencies and start
 
