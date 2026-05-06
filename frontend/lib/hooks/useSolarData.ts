@@ -4,6 +4,7 @@ import type { SolarReading, SolarResponse } from '@/lib/types';
 interface UseSolarDataParams {
   startDate?: string;
   endDate?:   string;
+  timezone?: string;
   enabled?:   boolean;
   returnBestDay?: boolean;
   returnWorstDay?: boolean;
@@ -20,6 +21,7 @@ const fetcher = (url: string) =>
 export function useSolarData({
   startDate,
   endDate,
+  timezone = Intl.DateTimeFormat().resolvedOptions().timeZone,
   enabled = true,
   returnBestDay = false,
   returnWorstDay = false,
@@ -28,6 +30,7 @@ export function useSolarData({
   const query = new URLSearchParams();
   if (startDate)  query.set('start_date',     startDate);
   if (endDate)    query.set('end_date',       endDate);
+  if (timezone)   query.set('timezone',       timezone);
   query.set('return_best_day',  String(returnBestDay));
   query.set('return_worst_day', String(returnWorstDay));
   query.set('return_today',     String(returnToday));
