@@ -12,6 +12,10 @@
 #   • Redis running locally or via Docker
 #   • backend/.env and frontend/.env.local present
 #
+# Notes:
+#   • If Ruby is missing (or < 3.2), this script installs rbenv + Ruby automatically.
+#   • If Node is missing (or < 20), this script installs nvm + Node automatically.
+#
 # Usage:
 #   chmod +x setup.sh
 #   ./setup.sh -y
@@ -38,6 +42,136 @@ step() { echo -e "\n${BOLD}▶ $1${NC}"; }
 AUTO_INSTALL=false
 CONFIRMED=false
 BYPASS_MODE=false
+APT_UPDATED=false
+MIN_RUBY="3.2.0"
+MIN_NODE_MAJOR=20
+
+apt_install() {
+  if [[ "$APT_UPDATED" == "false" ]]; then
+    sudo apt-get update
+    APT_UPDATED=true
+  fi
+
+  sudo DEBIAN_FRONTEND=noninteractive apt-get install -y "$@"
+}
+
+version_ge() {
+  local a="$1" b="$2"
+  [[ "$(printf '%s\n' "$a" "$b" | sort -V | head -n1)" == "$b" ]]
+}
+
+setup_rbenv_shell() {
+  export RBENV_ROOT="$HOME/.rbenv"
+  export PATH="$RBENV_ROOT/bin:$PATH"
+  if command -v rbenv >/dev/null 2>&1; then
+    eval "$(rbenv init - bash)"
+  fi
+}
+
+ensure_ruby() {
+  local ruby_version
+  if command -v ruby >/dev/null 2>&1; then
+    ruby_version="$(ruby --version | awk '{print $2}')"
+    if version_ge "$ruby_version" "$MIN_RUBY"; then
+      ok "Ruby  $ruby_version"
+      return
+    fi
+    warn "Ruby $ruby_version detected, but >= $MIN_RUBY is required"
+  else
+    warn "Ruby not found"
+  fi
+
+  step "Installing rbenv and Ruby $MIN_RUBY"
+  apt_install \
+    build-essential \
+    curl \
+    git \
+    libffi-dev \
+    libgdbm-dev \
+    libncurses5-dev \
+    libncursesw5-dev \
+    libreadline-dev \
+    libsqlite3-dev \
+    libssl-dev \
+    libyaml-dev \
+    tk \
+    xz-utils \
+    zlib1g-dev
+
+  if [[ ! -d "$HOME/.rbenv" ]]; then
+    git clone https://github.com/rbenv/rbenv.git "$HOME/.rbenv"
+  fi
+
+  if [[ ! -d "$HOME/.rbenv/plugins/ruby-build" ]]; then
+    git clone https://github.com/rbenv/ruby-build.git "$HOME/.rbenv/plugins/ruby-build"
+  fi
+
+  if ! grep -q 'rbenv init - bash' "$HOME/.bashrc" 2>/dev/null; then
+    cat >> "$HOME/.bashrc" <<'EOF'
+
+# rbenv setup (SolarPeak)
+export RBENV_ROOT="$HOME/.rbenv"
+export PATH="$RBENV_ROOT/bin:$PATH"
+eval "$(rbenv init - bash)"
+EOF
+  fi
+
+  setup_rbenv_shell
+
+  if ! rbenv versions --bare | grep -qx "$MIN_RUBY"; then
+    rbenv install "$MIN_RUBY"
+  fi
+
+  rbenv global "$MIN_RUBY"
+  rbenv rehash
+
+  ruby_version="$(ruby --version | awk '{print $2}')"
+  if ! version_ge "$ruby_version" "$MIN_RUBY"; then
+    fail "Ruby installation failed (detected $ruby_version, expected >= $MIN_RUBY)"
+  fi
+
+  ok "Ruby  $ruby_version"
+}
+
+ensure_node() {
+  local node_version node_major
+  if command -v node >/dev/null 2>&1; then
+    node_version="$(node --version | sed 's/^v//')"
+    node_major="${node_version%%.*}"
+    if [[ "$node_major" -ge "$MIN_NODE_MAJOR" ]]; then
+      ok "Node  v$node_version"
+      return
+    fi
+    warn "Node v$node_version detected, but >= v$MIN_NODE_MAJOR is required"
+  else
+    warn "Node.js not found"
+  fi
+
+  step "Installing nvm and Node $MIN_NODE_MAJOR"
+  apt_install curl
+
+  export NVM_DIR="$HOME/.nvm"
+  if [[ ! -d "$NVM_DIR" ]]; then
+    curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
+  fi
+
+  # shellcheck disable=SC1090
+  [[ -s "$NVM_DIR/nvm.sh" ]] && . "$NVM_DIR/nvm.sh"
+
+  command -v nvm >/dev/null 2>&1 || fail "nvm installation failed"
+
+  nvm install "$MIN_NODE_MAJOR"
+  nvm alias default "$MIN_NODE_MAJOR"
+  nvm use "$MIN_NODE_MAJOR"
+
+  node_version="$(node --version | sed 's/^v//')"
+  node_major="${node_version%%.*}"
+  if [[ "$node_major" -lt "$MIN_NODE_MAJOR" ]]; then
+    fail "Node installation failed (detected v$node_version, expected >= v$MIN_NODE_MAJOR)"
+  fi
+
+  ok "Node  v$node_version"
+}
 
 usage() {
   cat <<'USAGE'
@@ -172,8 +306,7 @@ fi
 
 if [[ "$AUTO_INSTALL" == "true" ]]; then
   step "Installing required Ubuntu packages (-a mode)"
-  sudo apt-get update
-  sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
+  apt_install \
     build-essential \
     ca-certificates \
     curl \
@@ -192,14 +325,11 @@ fi
 # ── Check prerequisites ───────────────────────────────────────────────────────
 step "Checking prerequisites"
 
-command -v ruby  >/dev/null 2>&1 || fail "Ruby not found. Install via rbenv: https://github.com/rbenv/rbenv"
-command -v node  >/dev/null 2>&1 || fail "Node.js not found. Install via nvm: https://github.com/nvm-sh/nvm"
+ensure_ruby
+ensure_node
 command -v docker >/dev/null 2>&1 || warn "Docker not found — if DB/Redis are containerized, install Docker first"
 command -v psql  >/dev/null 2>&1 || warn "psql not found — ensure PostgreSQL is reachable via DATABASE_URL"
 command -v redis-cli >/dev/null 2>&1 || warn "redis-cli not found — ensure Redis is reachable via REDIS_URL"
-
-ok "Ruby  $(ruby --version | awk '{print $2}')"
-ok "Node  $(node --version)"
 
 # ── Check env files ───────────────────────────────────────────────────────────
 step "Checking environment files"
