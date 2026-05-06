@@ -7,9 +7,10 @@ module Api
     class BaseController < ApplicationController
       private
 
-      def render_json(data, status: :ok, meta: nil)
+      def render_json(data, status: :ok, meta: nil, extra: nil)
         payload = { data: data }
         payload[:meta] = meta if meta
+        payload.merge!(extra) if extra.present?
         render json: payload, status: status
       end
     end

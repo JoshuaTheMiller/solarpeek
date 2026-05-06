@@ -47,13 +47,17 @@ class ApplicationController < ActionController::API
 
   # Finds or creates a stable local admin user used in bypass mode.
   # Uses a clearly fake auth0_sub so it is never confused with a real identity.
+  # Attributes are kept in sync on every call so DB drift does not cause surprises.
   def bypass_user
-    User.find_or_create_by!(auth0_sub: 'dev|bypass-user') do |u|
-      u.email            = 'dev@localhost'
-      u.role             = 'admin'
-      u.query_limit_days = 365
-      u.active           = true
-    end
+    user = User.find_or_initialize_by(auth0_sub: 'dev|bypass-user')
+    user.assign_attributes(
+      email:            'dev@localhost',
+      role:             'admin',
+      query_limit_days: 365,
+      active:           true
+    )
+    user.save! if user.changed?
+    user
   end
 
   def extract_bearer_token

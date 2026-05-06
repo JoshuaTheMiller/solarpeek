@@ -25,14 +25,32 @@ RSpec.describe 'GET /api/v1/solar/readings', type: :request do
       parameter name:        :start_date,
                 in:          :query,
                 type:        :string,
-                required:    true,
-                description: 'Start of the date range (YYYY-MM-DD)'
+                required:    false,
+                description: 'Start of the date range (YYYY-MM-DD). Defaults to today minus 364 days.'
 
       parameter name:        :end_date,
                 in:          :query,
                 type:        :string,
-                required:    true,
-                description: 'End of the date range, inclusive (YYYY-MM-DD)'
+                required:    false,
+                description: 'End of the date range, inclusive (YYYY-MM-DD). Defaults to today.'
+
+      parameter name:        :return_best_day,
+            in:          :query,
+            type:        :boolean,
+            required:    false,
+            description: 'When true, include best_readings in the response (default: false)'
+
+      parameter name:        :return_worst_day,
+            in:          :query,
+            type:        :boolean,
+            required:    false,
+            description: 'When true, include worst_readings in the response (default: false)'
+
+      parameter name:        :return_today,
+            in:          :query,
+            type:        :boolean,
+            required:    false,
+            description: 'When true, include today_readings in the response (default: false)'
 
       # ── 200 ───────────────────────────────────────────────────────────────
       response '200', 'Solar readings returned' do
@@ -41,6 +59,29 @@ RSpec.describe 'GET /api/v1/solar/readings', type: :request do
             data: {
               type:  :array,
               items: { '$ref' => '#/components/schemas/SolarReading' }
+            },
+            best_readings: {
+              type:  :array,
+              items: { '$ref' => '#/components/schemas/SolarReading' }
+            },
+            best_date: {
+              type: :string,
+              nullable: true
+            },
+            worst_readings: {
+              type:  :array,
+              items: { '$ref' => '#/components/schemas/SolarReading' }
+            },
+            worst_date: {
+              type: :string,
+              nullable: true
+            },
+            today_readings: {
+              type:  :array,
+              items: { '$ref' => '#/components/schemas/SolarReading' }
+            },
+            today_date: {
+              type: :string
             },
             meta: {
               type: :object,
@@ -51,17 +92,131 @@ RSpec.describe 'GET /api/v1/solar/readings', type: :request do
               required: %w[query_limit_days requested_days]
             }
           },
-          required: %w[data meta]
+          required: %w[data best_readings best_date worst_readings worst_date today_readings today_date meta]
 
-        before { sign_in(viewer) }
+        before do
+          sign_in(viewer)
+          allow(SolarDataService).to receive(:fetch).and_return(
+            {
+              readings: [{ timestamp: '2024-01-01T09:00:00Z', wattage: 500.0 }],
+              best_readings: [],
+              best_date: nil,
+              worst_readings: [],
+              worst_date: nil,
+              today_readings: [],
+              today_date: Date.current.iso8601
+            }
+          )
+        end
+
         let(:Authorization) { 'Bearer valid_token' }
         let(:start_date)    { '2024-01-01' }
         let(:end_date)      { '2024-01-07' }
-        run_test!
+
+        run_test! do |response|
+          payload = JSON.parse(response.body)
+
+          expect(payload['data']).to be_a(Array)
+          expect(payload['meta']).to include('query_limit_days', 'requested_days')
+          expect(payload['best_readings']).to eq([])
+          expect(payload['best_date']).to be_nil
+          expect(payload['worst_readings']).to eq([])
+          expect(payload['worst_date']).to be_nil
+          expect(payload['today_readings']).to eq([])
+          expect(payload['today_date']).to eq(Date.current.iso8601)
+        end
       end
 
-      # ── 422 — range exceeds limit ─────────────────────────────────────────
-      response '422', 'Date range exceeds the user query limit' do
+      response '200', 'Solar readings returned with optional overlays' do
+        schema type: :object,
+          properties: {
+            data: {
+              type:  :array,
+              items: { '$ref' => '#/components/schemas/SolarReading' }
+            },
+            best_readings: {
+              type:  :array,
+              items: { '$ref' => '#/components/schemas/SolarReading' }
+            },
+            best_date: {
+              type: :string,
+              nullable: true
+            },
+            worst_readings: {
+              type:  :array,
+              items: { '$ref' => '#/components/schemas/SolarReading' }
+            },
+            worst_date: {
+              type: :string,
+              nullable: true
+            },
+            today_readings: {
+              type:  :array,
+              items: { '$ref' => '#/components/schemas/SolarReading' }
+            },
+            today_date: {
+              type: :string
+            },
+            meta: {
+              type: :object,
+              properties: {
+                query_limit_days: { type: :integer },
+                requested_days:   { type: :integer }
+              },
+              required: %w[query_limit_days requested_days]
+            }
+          },
+          required: %w[data best_readings best_date worst_readings worst_date today_readings today_date meta]
+
+        before do
+          sign_in(viewer)
+          allow(SolarDataService).to receive(:fetch).and_return(
+            {
+              readings: [
+                { timestamp: '2024-01-01T01:00:00Z', wattage: 100.0 }
+              ],
+              best_readings: [
+                { timestamp: '2024-01-03T01:00:00Z', wattage: 220.0 }
+              ],
+              best_date: '2024-01-03',
+              worst_readings: [
+                { timestamp: '2024-01-02T01:00:00Z', wattage: 20.0 }
+              ],
+              worst_date: '2024-01-02',
+              today_readings: [
+                { timestamp: '2024-01-01T01:00:00Z', wattage: 100.0 }
+              ],
+              today_date: Date.current.iso8601
+            }
+          )
+        end
+
+        let(:Authorization)     { 'Bearer valid_token' }
+        let(:start_date)        { '2024-01-01' }
+        let(:end_date)          { '2024-01-07' }
+        let(:return_best_day)   { true }
+        let(:return_worst_day)  { true }
+        let(:return_today)      { true }
+
+        run_test! do |response|
+          payload = JSON.parse(response.body)
+
+          expect(payload['data']).to be_an(Array)
+          expect(payload['best_readings']).to be_an(Array)
+          expect(payload['worst_readings']).to be_an(Array)
+          expect(payload['today_readings']).to be_an(Array)
+
+          expect(payload['best_readings'].first).to include('timestamp', 'wattage')
+          expect(payload['best_date']).to eq('2024-01-03')
+          expect(payload['worst_readings'].first).to include('timestamp', 'wattage')
+          expect(payload['worst_date']).to eq('2024-01-02')
+          expect(payload['today_readings'].first).to include('timestamp', 'wattage')
+          expect(payload['today_date']).to eq(Date.current.iso8601)
+        end
+      end
+
+      # ── 403 — range exceeds limit ─────────────────────────────────────────
+      response '403', 'Date range exceeds the user query limit' do
         schema '$ref' => '#/components/schemas/Error'
 
         before { sign_in(viewer) }   # viewer has 30-day limit
@@ -85,6 +240,16 @@ RSpec.describe 'GET /api/v1/solar/readings', type: :request do
       # ── 401 ───────────────────────────────────────────────────────────────
       response '401', 'Unauthenticated' do
         schema '$ref' => '#/components/schemas/Error'
+
+        before do
+          # Auth bypass mode (DISABLE_AUTH=true + AM_I_SURE=yes) makes every
+          # request authenticate as the bypass user, so a true 401 is not
+          # reachable. Skip rather than fail the suite in that environment.
+          bypass_active = ENV['DISABLE_AUTH']&.strip&.downcase == 'true' &&
+                          ENV['AM_I_SURE']&.strip&.downcase  == 'yes'
+          skip 'Auth bypass is active — 401 cannot be exercised in this environment' if bypass_active
+        end
+
         let(:Authorization) { nil }
         let(:start_date)    { '2024-01-01' }
         let(:end_date)      { '2024-01-07' }

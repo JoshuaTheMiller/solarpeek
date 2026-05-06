@@ -10,10 +10,18 @@
 # will not change.
 #
 # Return format:
-#   [
-#     { timestamp: "2024-06-15T09:00:00Z", wattage: 1234.56 },
-#     ...
-#   ]
+#   {
+#     readings: [
+#       { timestamp: "2024-06-15T09:00:00Z", wattage: 1234.56 },
+#       ...
+#     ],
+#     best_readings: [...],
+#     best_date: "YYYY-MM-DD" | nil,
+#     worst_readings: [...],
+#     worst_date: "YYYY-MM-DD" | nil,
+#     today_readings: [...]
+#     today_date: "YYYY-MM-DD"
+#   }
 #
 # Caching:
 #   Results are cached in Redis for CACHE_TTL seconds, keyed by date range.
@@ -28,26 +36,48 @@ class SolarDataService
 
   # @param start_date [Date, String]
   # @param end_date   [Date, String]
-  # @return [Array<Hash>]
-  def self.fetch(start_date:, end_date:)
+  # @param return_best_day [Boolean]
+  # @param return_worst_day [Boolean]
+  # @param return_today [Boolean]
+  # @return [Hash]
+  def self.fetch(start_date:, end_date:, return_best_day: false, return_worst_day: false, return_today: false)
     start_d = start_date.to_date
     end_d   = end_date.to_date
 
     points = []
+    points_by_requested_date = {}
 
     (start_d..end_d).each do |date|
       day_points = cached_points_for_date(date)
 
       if day_points.nil?
-        fetched = fetch_from_api(date: date)
+        begin
+          fetched = fetch_from_api(date: date)
+        rescue StandardError
+          fetched = []
+        end
         cache_points_for_date(date, fetched)
         day_points = fetched.map { |p| p.slice(:timestamp, :wattage) }
       end
 
       points.concat(day_points)
+      points_by_requested_date[date] = day_points
     end
 
-    points.sort_by { |p| p[:timestamp] }
+    readings = points.sort_by { |p| p[:timestamp] }
+
+    best_day = return_best_day ? best_day_payload(points_by_requested_date) : nil
+    worst_day = return_worst_day ? worst_day_payload(points_by_requested_date) : nil
+
+    {
+      readings: readings,
+      best_readings: best_day ? best_day.fetch(:readings) : [],
+      best_date: best_day ? best_day.fetch(:date).iso8601 : nil,
+      worst_readings: worst_day ? worst_day.fetch(:readings) : [],
+      worst_date: worst_day ? worst_day.fetch(:date).iso8601 : nil,
+      today_readings: return_today ? points_by_requested_date.fetch(Date.current, []) : [],
+      today_date: Date.current.iso8601
+    }
   end
 
   # ── Private ────────────────────────────────────────────────────────────────
@@ -166,5 +196,29 @@ class SolarDataService
     "#{uri.scheme}://#{host_and_port}#{final_path}"
   rescue URI::InvalidURIError => e
     raise ArgumentError, "Invalid HOST value: #{e.message}"
+  end
+
+  private_class_method def self.best_day_payload(grouped_by_date)
+    days_with_generation = days_with_generation(grouped_by_date)
+    return nil if days_with_generation.empty?
+
+    date, readings = days_with_generation.max_by { |_day, points| daily_total(points) }
+    { date: date, readings: readings || [] }
+  end
+
+  private_class_method def self.worst_day_payload(grouped_by_date)
+    days_with_generation = days_with_generation(grouped_by_date)
+    return nil if days_with_generation.empty?
+
+    date, readings = days_with_generation.min_by { |_day, points| daily_total(points) }
+    { date: date, readings: readings || [] }
+  end
+
+  private_class_method def self.days_with_generation(grouped_by_date)
+    grouped_by_date.reject { |_day, points| daily_total(points).zero? }
+  end
+
+  private_class_method def self.daily_total(points)
+    points.sum { |point| point.fetch(:wattage).to_f }
   end
 end
