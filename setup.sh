@@ -9,9 +9,9 @@
 # Prerequisites:
 #   • Ruby 3.2+ (rbenv recommended)
 #   • Node 20+
-#   • PostgreSQL running locally or via Docker  (docker-compose up postgres redis)
+#   • PostgreSQL running locally or via Docker  (docker compose up -d postgres redis)
 #   • Redis running locally or via Docker
-#   • backend/.env and frontend/.env.local present (run scripts/auth0_setup.rb first)
+#   • backend/.env and frontend/.env.local present
 #
 # Usage:
 #   chmod +x setup.sh
@@ -36,6 +36,7 @@ step "Checking prerequisites"
 
 command -v ruby  >/dev/null 2>&1 || fail "Ruby not found. Install via rbenv: https://github.com/rbenv/rbenv"
 command -v node  >/dev/null 2>&1 || fail "Node.js not found. Install via nvm: https://github.com/nvm-sh/nvm"
+command -v docker >/dev/null 2>&1 || warn "Docker not found — if DB/Redis are containerized, install Docker first"
 command -v psql  >/dev/null 2>&1 || warn "psql not found — ensure PostgreSQL is reachable via DATABASE_URL"
 command -v redis-cli >/dev/null 2>&1 || warn "redis-cli not found — ensure Redis is reachable via REDIS_URL"
 
@@ -48,6 +49,7 @@ step "Checking environment files"
 if [ ! -f backend/.env ]; then
   warn "backend/.env not found."
   echo "       Run: ruby scripts/auth0_setup.rb"
+  echo "       Or create backend/.env manually for bypass mode."
   echo "       Then re-run this script."
   exit 1
 fi
@@ -55,12 +57,17 @@ fi
 if [ ! -f frontend/.env.local ]; then
   warn "frontend/.env.local not found."
   echo "       Run: ruby scripts/auth0_setup.rb"
+  echo "       Or create frontend/.env.local manually for bypass mode."
   echo "       Then re-run this script."
   exit 1
 fi
 
 ok "backend/.env present"
 ok "frontend/.env.local present"
+
+if ! grep -q '^MAX_QUERY_LIMIT_DAYS=' backend/.env; then
+  warn "MAX_QUERY_LIMIT_DAYS is not set in backend/.env (default 90 will be used)"
+fi
 
 # ── Backend ───────────────────────────────────────────────────────────────────
 step "Installing Ruby gems (backend)"
@@ -95,7 +102,7 @@ echo -e "\n${BOLD}════════════════════�
 echo -e "${GREEN}${BOLD}  ✓ Setup complete!${NC}"
 echo -e "${BOLD}════════════════════════════════════════════${NC}"
 echo
-echo -e "  Start infrastructure:    ${BOLD}docker-compose up postgres redis${NC}"
+echo -e "  Start infrastructure:    ${BOLD}docker compose up -d postgres redis${NC}"
 echo -e "  Start Rails API:         ${BOLD}cd backend && bin/rails s -p 3001${NC}"
 echo -e "  Start Next.js:           ${BOLD}cd frontend && npm run dev${NC}"
 echo -e "  View API docs (Redocly): ${BOLD}http://localhost:3001/api-docs${NC}"
